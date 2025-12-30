@@ -1,0 +1,39 @@
+{
+  "project_info": {
+    "project_number": "115545404444",
+    "project_id": "expoai-8fbcb",
+    "storage_bucket": "expoai-8fbcb.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:115545404444:android:d3010e90fd005350195bd9",
+        "android_client_info": {
+          "package_name": "com.example.expoaiapplication"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "115545404444-v7msuimkgd810kqifkqkgsa9kfmquj9v.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBtR43VFdpUJSbdQ7a4BrVnhCrCCna9uYY"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "115545404444-v7msuimkgd810kqifkqkgsa9kfmquj9v.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
