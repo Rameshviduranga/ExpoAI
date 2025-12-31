@@ -1,4 +1,4 @@
-package com.example.expoaiapplication
+package com.example.expoai
 
 import android.os.Bundle
 import android.widget.Toast
@@ -17,6 +17,11 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.Assignment
+import androidx.compose.material.icons.automirrored.filled.Help
+import androidx.compose.material.icons.automirrored.filled.Launch
+import androidx.compose.material.icons.automirrored.filled.Logout
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -111,8 +116,13 @@ class MainActivity : ComponentActivity() {
                                         IconButton(onClick = { /* Handle notifications */ }) {
                                             Icon(Icons.Default.Notifications, "Notifications")
                                         }
-                                        IconButton(onClick = { navController.navigate("login") }) {
-                                            Icon(Icons.Default.AccountCircle, "Login")
+                                        IconButton(onClick = {
+                                            auth.signOut()
+                                            navController.navigate("login") {
+                                                popUpTo("home") { inclusive = true }
+                                            }
+                                        }) {
+                                            Icon(Icons.AutoMirrored.Filled.Logout, "Logout")
                                         }
                                     },
                                     colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
@@ -122,7 +132,7 @@ class MainActivity : ComponentActivity() {
                             }
                         },
                         bottomBar = {
-                            if (currentRoute in listOf("home", "quiz", "menu") || currentRoute?.startsWith("details/") == true) {
+                            if (currentRoute?.startsWith("home") == true || currentRoute == "quiz" || currentRoute == "menu" || currentRoute?.startsWith("details/") == true) {
                                 FixedBottomNav(navController)
                             }
                         }
@@ -145,9 +155,9 @@ fun DrawerContent(navController: NavHostController, onClose: () -> Unit, onTheme
         DrawerItem(Icons.Default.NewReleases, "Newest") { navController.navigate("home"); onClose() }
         DrawerItem(Icons.Default.Quiz, "Quizzes") { navController.navigate("quiz"); onClose() }
         DrawerItem(if (isDarkMode) Icons.Default.LightMode else Icons.Default.DarkMode, "Theme") { onThemeToggle(); onClose() }
-        Divider(modifier = Modifier.padding(vertical = 16.dp))
+        HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp))
         DrawerItem(Icons.Default.PrivacyTip, "Privacy Policy") { navController.navigate("privacy"); onClose() }
-        DrawerItem(Icons.Default.Help, "Help Center") { navController.navigate("help"); onClose() }
+        DrawerItem(Icons.AutoMirrored.Filled.Help, "Help Center") { navController.navigate("help"); onClose() }
         DrawerItem(Icons.Default.Feedback, "Feedback") { navController.navigate("feedback"); onClose() }
         DrawerItem(Icons.Default.Info, "About") { navController.navigate("about"); onClose() }
     }
@@ -179,7 +189,7 @@ fun AppNavigation(navController: NavHostController, onThemeToggle: () -> Unit, i
     NavHost(navController = navController, startDestination = "splash") {
         composable("splash") { SplashScreen(navController) }
         composable("welcome") { WelcomeScreen(navController) }
-        composable("home") { DashboardScreen(navController, onThemeToggle, isDarkMode) }
+        composable("home") { DashboardScreen(navController) }
         composable("quiz") { QuizScreen() }
         composable("menu") { MenuPage(navController, onThemeToggle, isDarkMode) }
         composable("login") { LoginScreen(navController, auth) }
@@ -297,7 +307,7 @@ fun LoginScreen(navController: NavHostController, auth: FirebaseAuth) {
                 Text("Don't have an account? Sign Up")
             }
         }
-        IconButton(onClick = { navController.popBackStack() }, modifier = Modifier.padding(16.dp)) { Icon(Icons.Default.ArrowBack, "Back") }
+        IconButton(onClick = { navController.popBackStack() }, modifier = Modifier.padding(16.dp)) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back") }
     }
 }
 
@@ -328,7 +338,8 @@ fun SignUpScreen(navController: NavHostController, auth: FirebaseAuth) {
                     auth.createUserWithEmailAndPassword(email, password)
                         .addOnCompleteListener { task ->
                             if (task.isSuccessful) {
-                                Toast.makeText(context, "Sign up successful! Please log in.", Toast.LENGTH_SHORT).show()
+                                Toast.makeText(context, "Sign up successful! Please log in.", Toast.LENGTH_LONG).show()
+                                auth.signOut() // Auto logout after signup
                                 navController.navigate("login") {
                                     popUpTo("signup") { inclusive = true }
                                 }
@@ -346,7 +357,7 @@ fun SignUpScreen(navController: NavHostController, auth: FirebaseAuth) {
                 Text("Already have an account? Login")
             }
         }
-        IconButton(onClick = { navController.popBackStack() }, modifier = Modifier.padding(16.dp)) { Icon(Icons.Default.ArrowBack, "Back") }
+        IconButton(onClick = { navController.popBackStack() }, modifier = Modifier.padding(16.dp)) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back") }
     }
 }
 
@@ -360,7 +371,7 @@ fun PrivacyPolicyScreen(navController: NavHostController) {
                 title = { Text("Privacy Policy", fontWeight = FontWeight.Bold) },
                 navigationIcon = {
                     IconButton(onClick = { navController.popBackStack() }) {
-                        Icon(Icons.Default.ArrowBack, "Back")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back")
                     }
                 }
             )
@@ -403,7 +414,7 @@ fun HelpCenterScreen(navController: NavHostController) {
             @OptIn(ExperimentalMaterial3Api::class)
             TopAppBar(
                 title = { Text("Help Center", fontWeight = FontWeight.Bold) },
-                navigationIcon = { IconButton(onClick = { navController.popBackStack() }) { Icon(Icons.Default.ArrowBack, "Back") } }
+                navigationIcon = { IconButton(onClick = { navController.popBackStack() }) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back") } }
             )
         }
     ) { padding ->
@@ -441,7 +452,7 @@ fun FeedbackScreen(navController: NavHostController) {
             @OptIn(ExperimentalMaterial3Api::class)
             TopAppBar(
                 title = { Text("Feedback", fontWeight = FontWeight.Bold) },
-                navigationIcon = { IconButton(onClick = { navController.popBackStack() }) { Icon(Icons.Default.ArrowBack, "Back") } }
+                navigationIcon = { IconButton(onClick = { navController.popBackStack() }) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back") } }
             )
         }
     ) { padding ->
@@ -486,7 +497,7 @@ fun AboutScreen(navController: NavHostController) {
             @OptIn(ExperimentalMaterial3Api::class)
             TopAppBar(
                 title = { Text("About ExpoAI", fontWeight = FontWeight.Bold) },
-                navigationIcon = { IconButton(onClick = { navController.popBackStack() }) { Icon(Icons.Default.ArrowBack, "Back") } }
+                navigationIcon = { IconButton(onClick = { navController.popBackStack() }) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back") } }
             )
         }
     ) { padding ->
@@ -588,7 +599,7 @@ fun QuizScreen() {
                         }
                     }
                     Spacer(Modifier.height(12.dp))
-                    LinearProgressIndicator(progress = (currentIndex + 1).toFloat() / 10, Modifier.fillMaxWidth().height(8.dp).clip(CircleShape), color = MaterialTheme.colorScheme.primary, trackColor = Color.White.copy(alpha = 0.2f))
+                    LinearProgressIndicator(progress = { (currentIndex + 1).toFloat() / 10 }, modifier = Modifier.fillMaxWidth().height(8.dp).clip(CircleShape), color = MaterialTheme.colorScheme.primary, trackColor = Color.White.copy(alpha = 0.2f))
                     Spacer(Modifier.height(40.dp))
                     AnimatedContent(targetState = currentIndex, label = "", transitionSpec = { (slideInHorizontally { it } + fadeIn()).togetherWith(slideOutHorizontally { -it } + fadeOut()) }) { idx ->
                         val q = filtered[idx]
@@ -609,7 +620,7 @@ fun QuizScreen() {
                                     else -> Color.White.copy(alpha = 0.05f)
                                 }
                                 Button(
-                                    onClick = { if (selectedOption == -1) {
+                                    onClick = { if (selectedOption == -1) { 
                                         selectedOption = i
                                         if (i == q.correctIndex) { score += 10; pointsAdded = true }
                                         scope.launch { delay(1200); pointsAdded = false; if(currentIndex < 9) { currentIndex++; selectedOption = -1 } else showResult = true }
@@ -617,7 +628,7 @@ fun QuizScreen() {
                                     modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp).height(60.dp),
                                     colors = ButtonDefaults.buttonColors(containerColor = color, contentColor = Color.White),
                                     shape = RoundedCornerShape(16.dp)
-                                ) {
+                                ) { 
                                     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                                         Text("${'A' + i}. ", fontWeight = FontWeight.Bold)
                                         Text(opt, fontWeight = FontWeight.Medium)
@@ -654,7 +665,7 @@ fun QuizLevelBtn(text: String, color: Color, onClick: () -> Unit) {
 // --- 6. DASHBOARD ---
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun DashboardScreen(navController: NavHostController, onThemeToggle: () -> Unit, isDarkMode: Boolean) {
+fun DashboardScreen(navController: NavHostController) {
     var searchQuery by remember { mutableStateOf("") }
     var selectedCategory by remember { mutableStateOf<String?>(null) }
     val filteredTools = allAITools.filter { it.name.contains(searchQuery, ignoreCase = true) }
@@ -664,13 +675,13 @@ fun DashboardScreen(navController: NavHostController, onThemeToggle: () -> Unit,
         item {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 if (selectedCategory != null) {
-                    IconButton(onClick = { selectedCategory = null }) { Icon(Icons.Default.ArrowBack, "Back") }
+                    IconButton(onClick = { selectedCategory = null }){ Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back") }
                 }
                 OutlinedTextField(
-                    value = searchQuery, onValueChange = { searchQuery = it; if (it.isNotEmpty()) selectedCategory = null },
-                    modifier = Modifier.fillMaxWidth(),
-                    placeholder = { Text("Search 24+ AI tools...") },
-                    leadingIcon = { Icon(Icons.Default.Search, null) },
+                    value = searchQuery, onValueChange = { searchQuery = it; if (it.isNotEmpty()) selectedCategory = null }, 
+                    modifier = Modifier.fillMaxWidth(), 
+                    placeholder = { Text("Search 24+ AI tools...") }, 
+                    leadingIcon = { Icon(Icons.Default.Search, null) }, 
                     shape = RoundedCornerShape(12.dp)
                 )
             }
@@ -707,7 +718,7 @@ fun CategoryRowSection(title: String, navController: NavHostController, onSeeMor
         Box(modifier = Modifier.fillMaxWidth()) {
             TextButton(onClick = onSeeMore, modifier = Modifier.align(Alignment.CenterEnd)) { Text("See more.", color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold) }
         }
-        Divider(thickness = 0.5.dp, color = Color.LightGray)
+        HorizontalDivider(thickness = 0.5.dp, color = Color.LightGray)
     }
 }
 
@@ -745,7 +756,7 @@ fun ToolDetailsPage(toolName: String) {
                 }
             }
         }
-
+        
         item {
             Column(modifier = Modifier.padding(24.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
@@ -769,13 +780,13 @@ fun ToolDetailsPage(toolName: String) {
                     "Discover the power of $toolName. This advanced AI solution leverages cutting-edge technology to provide comprehensive assistance and creative results for professionals and enthusiasts alike.",
                     fontSize = 16.sp, color = Color.Gray, lineHeight = 24.sp
                 )
-
+                
                 Spacer(Modifier.height(32.dp))
                 Text("Key Features", fontSize = 22.sp, fontWeight = FontWeight.Bold)
                 Spacer(Modifier.height(16.dp))
             }
         }
-
+        
         items(features) { f ->
             Card(Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 6.dp), shape = RoundedCornerShape(16.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))) {
                 Row(Modifier.padding(20.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -785,7 +796,7 @@ fun ToolDetailsPage(toolName: String) {
                 }
             }
         }
-
+        
         item {
             Button(
                 onClick = { tool?.let { uriHandler.openUri(it.url) } ?: uriHandler.openUri("https://google.com") },
@@ -793,7 +804,7 @@ fun ToolDetailsPage(toolName: String) {
                 shape = RoundedCornerShape(16.dp),
                 elevation = ButtonDefaults.buttonElevation(8.dp)
             ) {
-                Icon(Icons.Default.Launch, null)
+                Icon(Icons.AutoMirrored.Filled.Launch, null)
                 Spacer(Modifier.width(8.dp))
                 Text("Visit Official Website", fontSize = 18.sp, fontWeight = FontWeight.Bold)
             }
@@ -811,7 +822,7 @@ fun MenuPage(navController: NavHostController, onThemeToggle: () -> Unit, isDark
         item { SettingItem(Icons.Default.Notifications, "Notifications", "Alerts and Sounds") {} }
         item { SettingItem(Icons.Default.Language, "Language", "English (US)") {} }
         item { SettingItem(Icons.Default.PrivacyTip, "Privacy & Policy", "Data and Terms") { navController.navigate("privacy") } }
-        item { SettingItem(Icons.Default.Help, "Help Center", "FAQs and Guides") { navController.navigate("help") } }
+        item { SettingItem(Icons.AutoMirrored.Filled.Help, "Help Center", "FAQs and Guides") { navController.navigate("help") } }
         item { SettingItem(Icons.Default.Feedback, "Feedback", "Rate our App") { navController.navigate("feedback") } }
         item { SettingItem(Icons.Default.Info, "About ExpoAI", "Version 2.0.1") { navController.navigate("about") } }
         item { Spacer(modifier = Modifier.height(20.dp)) }
@@ -829,5 +840,5 @@ fun SettingItem(icon: ImageVector, title: String, subtitle: String, onClick: () 
 fun FixedBottomNav(navController: NavHostController) {
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route
-    Surface(modifier = Modifier.fillMaxWidth().height(80.dp), shadowElevation = 15.dp, shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp)) { Row(Modifier.fillMaxSize(), Arrangement.SpaceAround, Alignment.CenterVertically) { listOf(Triple("home", "Home", Icons.Default.Home), Triple("quiz", "Quiz", Icons.Default.Assignment), Triple("menu", "Settings", Icons.Default.Settings)).forEach { (route, label, icon) -> val isSelected = currentRoute == route; val scale by animateFloatAsState(if (isSelected) 1.2f else 1f, label = ""); Column(modifier = Modifier.clip(CircleShape).background(if (isSelected) MaterialTheme.colorScheme.primary.copy(alpha = 0.1f) else Color.Transparent).clickable { if (!isSelected) navController.navigate(route) }.padding(horizontal = 20.dp, vertical = 8.dp), horizontalAlignment = Alignment.CenterHorizontally) { Icon(icon, label, modifier = Modifier.scale(scale), tint = if (isSelected) MaterialTheme.colorScheme.primary else Color.Gray); Text(label, fontSize = 11.sp, fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal, color = if (isSelected) MaterialTheme.colorScheme.primary else Color.Gray) } } } }
+    Surface(modifier = Modifier.fillMaxWidth().height(80.dp), shadowElevation = 15.dp, shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp)) { Row(Modifier.fillMaxSize(), Arrangement.SpaceAround, Alignment.CenterVertically) { listOf(Triple("home", "Home", Icons.Default.Home), Triple("quiz", "Quiz", Icons.AutoMirrored.Filled.Assignment), Triple("menu", "Settings", Icons.Default.Settings)).forEach { (route, label, icon) -> val isSelected = currentRoute == route; val scale by animateFloatAsState(if (isSelected) 1.2f else 1f, label = ""); Column(modifier = Modifier.clip(CircleShape).background(if (isSelected) MaterialTheme.colorScheme.primary.copy(alpha = 0.1f) else Color.Transparent).clickable { if (!isSelected) navController.navigate(route) }.padding(horizontal = 20.dp, vertical = 8.dp), horizontalAlignment = Alignment.CenterHorizontally) { Icon(icon, label, modifier = Modifier.scale(scale), tint = if (isSelected) MaterialTheme.colorScheme.primary else Color.Gray); Text(label, fontSize = 11.sp, fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal, color = if (isSelected) MaterialTheme.colorScheme.primary else Color.Gray) } } } }
 }
