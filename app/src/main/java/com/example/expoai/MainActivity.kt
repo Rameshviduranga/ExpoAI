@@ -3,12 +3,15 @@ package com.example.expoai
 import android.os.Bundle
 import android.widget.Toast
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
@@ -40,42 +43,62 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.*
+import coil.compose.SubcomposeAsyncImage
 import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.database.DataSnapshot
+import com.google.firebase.database.DatabaseError
+import com.google.firebase.database.FirebaseDatabase
+import com.google.firebase.database.ValueEventListener
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 // --- DATA MODELS ---
-data class AITool(val name: String, val rating: String, val category: String, val url: String)
+data class AITool(
+    val name: String, 
+    val rating: String, 
+    val category: String, 
+    val url: String, 
+    val logoUrl: String,
+    val description: String = "Leading AI solution for various creative and technical needs."
+)
+
+data class UserFeedback(
+    val email: String = "",
+    val feedback: String = "",
+    val rating: Int = 0,
+    val timestamp: Long = 0
+)
 
 val allAITools = listOf(
-    AITool("ChatGPT", "4.9", "Text", "https://chat.openai.com"),
-    AITool("Claude", "4.8", "Text", "https://claude.ai"),
-    AITool("Gemini", "4.7", "Text", "https://gemini.google.com"),
-    AITool("Midjourney", "4.9", "Image", "https://www.midjourney.com"),
-    AITool("DALL-E", "4.6", "Image", "https://openai.com/dall-e-3"),
-    AITool("Sora", "4.8", "Video", "https://openai.com/sora"),
-    AITool("Jasper", "4.5", "Text", "https://www.jasper.ai"),
-    AITool("Leonardo", "4.7", "Image", "https://leonardo.ai"),
-    AITool("Perplexity", "4.8", "Search", "https://www.perplexity.ai"),
-    AITool("Llama 3", "4.6", "Text", "https://llama.meta.com"),
-    AITool("Stable Diffusion", "4.7", "Image", "https://stability.ai"),
-    AITool("Runway", "4.5", "Video", "https://runwayml.com"),
-    AITool("ElevenLabs", "4.9", "Audio", "https://elevenlabs.io"),
-    AITool("GitHub Copilot", "4.8", "Code", "https://github.com/features/copilot"),
-    AITool("Notion AI", "4.6", "Productivity", "https://www.notion.so/product/ai"),
-    AITool("Adobe Firefly", "4.7", "Image", "https://www.adobe.com/sensei/generative-ai/firefly.html"),
-    AITool("Canva AI", "4.5", "Design", "https://www.canva.com/ai-powered-design-tools/"),
-    AITool("Grammarly", "4.8", "Text", "https://www.grammarly.com"),
-    AITool("Otter.ai", "4.4", "Audio", "https://otter.ai"),
-    AITool("Synthesia", "4.6", "Video", "https://www.synthesia.io"),
-    AITool("HeyGen", "4.7", "Video", "https://www.heygen.com"),
-    AITool("Descript", "4.5", "Audio", "https://www.descript.com"),
-    AITool("Grok", "4.3", "Text", "https://x.ai"),
-    AITool("Pika", "4.4", "Video", "https://pika.art")
+    AITool("ChatGPT", "4.9", "Text", "https://chat.openai.com", "https://upload.wikimedia.org/wikipedia/commons/thumb/0/04/ChatGPT_logo.svg/1024px-ChatGPT_logo.svg.png", "Advanced conversational AI by OpenAI."),
+    AITool("Claude", "4.8", "Text", "https://claude.ai", "https://static-00.iconduck.com/assets.00/claude-ai-icon-512x512-7jt09fsr.png", "Next-gen AI assistant with constitutional safety."),
+    AITool("Gemini", "4.7", "Text", "https://gemini.google.com", "https://upload.wikimedia.org/wikipedia/commons/thumb/8/8a/Google_Gemini_logo.svg/2560px-Google_Gemini_logo.svg.png", "Google's most capable and multimodal AI model."),
+    AITool("Midjourney", "4.9", "Image", "https://www.midjourney.com", "https://img.freepik.com/free-icon/midjourney_318-864358.jpg", "High-quality generative art from text prompts."),
+    AITool("DALL-E", "4.6", "Image", "https://openai.com/dall-e-3", "https://static-00.iconduck.com/assets.00/openai-icon-2048x2048-660dqsn7.png", "Create realistic images and art from natural language."),
+    AITool("Sora", "4.8", "Video", "https://openai.com/sora", "https://openai.com/favicon.ico", "Transform text into realistic and imaginative videos."),
+    AITool("Jasper", "4.5", "Text", "https://www.jasper.ai", "https://assets-global.website-files.com/60e5f2de30b688353d7771f0/611f53e630732cd6b0fd048f_Jasper-Logo-p-500.png", "AI content platform for marketing and business."),
+    AITool("Leonardo", "4.7", "Image", "https://leonardo.ai", "https://leonardo-cdn.b-cdn.net/wp-content/uploads/2023/03/cropped-favicon-192x192.png", "Generate high-quality production assets for your projects."),
+    AITool("Perplexity", "4.8", "Search", "https://www.perplexity.ai", "https://www.perplexity.ai/favicon.ico", "AI-powered search engine for instant answers."),
+    AITool("Llama 3", "4.6", "Text", "https://llama.meta.com", "https://upload.wikimedia.org/wikipedia/commons/thumb/7/7b/Meta_Platforms_Inc._logo.svg/1280px-Meta_Platforms_Inc._logo.svg.png", "Meta's open-source large language model."),
+    AITool("Stable Diffusion", "4.7", "Image", "https://stability.ai", "https://stability.ai/favicon.ico", "Open-weights text-to-image diffusion model."),
+    AITool("Runway", "4.5", "Video", "https://runwayml.com", "https://runwayml.com/favicon.ico", "Next-generation video generation tools for creators."),
+    AITool("ElevenLabs", "4.9", "Audio", "https://elevenlabs.io", "https://elevenlabs.io/favicon.ico", "Most realistic AI speech and voice synthesis."),
+    AITool("GitHub Copilot", "4.8", "Code", "https://github.com/features/copilot", "https://github.githubassets.com/assets/copilot-938d6e6cb063.png", "Your AI pair programmer for faster coding."),
+    AITool("Notion AI", "4.6", "Productivity", "https://www.notion.so/product/ai", "https://www.notion.so/images/favicon.ico", "Integrated AI to help you write, plan, and summarize."),
+    AITool("Adobe Firefly", "4.7", "Image", "https://www.adobe.com/sensei/generative-ai/firefly.html", "https://www.adobe.com/favicon.ico", "Generative AI for creative design within Adobe apps."),
+    AITool("Canva AI", "4.5", "Design", "https://www.canva.com/ai-powered-design-tools/", "https://www.canva.com/favicon.ico", "Magic Design and AI tools for easier creation."),
+    AITool("Grammarly", "4.8", "Text", "https://www.grammarly.com", "https://www.grammarly.com/favicon.ico", "AI writing assistant for clear and effective communication."),
+    AITool("Otter.ai", "4.4", "Audio", "https://otter.ai", "https://otter.ai/favicon.ico", "AI meeting assistant that transcribes voice to notes."),
+    AITool("Synthesia", "4.6", "Video", "https://www.synthesia.io", "https://www.synthesia.io/favicon.ico", "Create AI videos with avatars in minutes."),
+    AITool("HeyGen", "4.7", "Video", "https://www.heygen.com", "https://www.heygen.com/favicon.ico", "Professional AI video generation for business."),
+    AITool("Descript", "4.5", "Audio", "https://www.descript.com", "https://www.descript.com/favicon.ico", "All-in-one video and podcast editing powered by AI."),
+    AITool("Grok", "4.3", "Text", "https://x.ai", "https://x.ai/favicon.ico", "X's witty AI with real-time knowledge of the world."),
+    AITool("Pika", "4.4", "Video", "https://pika.art", "https://pika.art/favicon.ico", "An idea-to-video platform that sets your creativity in motion.")
 )
 
 class MainActivity : ComponentActivity() {
@@ -86,7 +109,9 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         auth = FirebaseAuth.getInstance()
         setContent {
-            var isDarkMode by remember { mutableStateOf(false) }
+            var isDarkMode by remember { mutableStateOf(true) }
+            var sessionRating by remember { mutableIntStateOf(0) }
+            
             ExpoAITheme(darkTheme = isDarkMode) {
                 val navController = rememberNavController()
                 val navBackStackEntry by navController.currentBackStackEntryAsState()
@@ -94,8 +119,13 @@ class MainActivity : ComponentActivity() {
                 val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
                 val scope = rememberCoroutineScope()
 
+                // Disable drawer gestures on auth screens
+                val isAuthRoute = currentRoute in listOf("splash", "welcome", "login", "signup")
+                val gesturesEnabled = !isAuthRoute
+
                 ModalNavigationDrawer(
                     drawerState = drawerState,
+                    gesturesEnabled = gesturesEnabled,
                     drawerContent = {
                         ModalDrawerSheet {
                             DrawerContent(navController, { scope.launch { drawerState.close() } }, onThemeToggle = { isDarkMode = !isDarkMode }, isDarkMode = isDarkMode)
@@ -119,7 +149,7 @@ class MainActivity : ComponentActivity() {
                                         IconButton(onClick = {
                                             auth.signOut()
                                             navController.navigate("login") {
-                                                popUpTo("home") { inclusive = true }
+                                                popUpTo(navController.graph.id) { inclusive = true }
                                             }
                                         }) {
                                             Icon(Icons.AutoMirrored.Filled.Logout, "Logout")
@@ -138,7 +168,7 @@ class MainActivity : ComponentActivity() {
                         }
                     ) { innerPadding ->
                         Box(modifier = Modifier.padding(innerPadding)) {
-                            AppNavigation(navController, { isDarkMode = !isDarkMode }, isDarkMode, auth)
+                            AppNavigation(navController, { isDarkMode = !isDarkMode }, isDarkMode, auth, sessionRating, onRatingChange = { sessionRating = it })
                         }
                     }
                 }
@@ -151,9 +181,9 @@ class MainActivity : ComponentActivity() {
 fun DrawerContent(navController: NavHostController, onClose: () -> Unit, onThemeToggle: () -> Unit, isDarkMode: Boolean) {
     Column(modifier = Modifier.fillMaxHeight().padding(16.dp)) {
         Text("ExpoAI Menu", fontSize = 24.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(bottom = 24.dp))
-        DrawerItem(Icons.Default.Star, "Top Rated") { navController.navigate("home"); onClose() }
-        DrawerItem(Icons.Default.NewReleases, "Newest") { navController.navigate("home"); onClose() }
-        DrawerItem(Icons.Default.Quiz, "Quizzes") { navController.navigate("quiz"); onClose() }
+        DrawerItem(Icons.Default.Star, "Top Rated") { navController.navigate("home") { popUpTo("home") { inclusive = true } }; onClose() }
+        DrawerItem(Icons.Default.NewReleases, "Newest") { navController.navigate("home") { popUpTo("home") { inclusive = true } }; onClose() }
+        DrawerItem(Icons.Default.Quiz, "Quizzes") { navController.navigate("quiz") { popUpTo("home") }; onClose() }
         DrawerItem(if (isDarkMode) Icons.Default.LightMode else Icons.Default.DarkMode, "Theme") { onThemeToggle(); onClose() }
         HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp))
         DrawerItem(Icons.Default.PrivacyTip, "Privacy Policy") { navController.navigate("privacy"); onClose() }
@@ -178,28 +208,35 @@ fun DrawerItem(icon: ImageVector, label: String, onClick: () -> Unit) {
 // --- 1. THEME ---
 @Composable
 fun ExpoAITheme(darkTheme: Boolean, content: @Composable () -> Unit) {
-    val colorScheme = if (darkTheme) darkColorScheme(primary = Color(0xFFBB86FC), background = Color(0xFF121212), surface = Color(0xFF1E1E1E))
+    val colorScheme = if (darkTheme) darkColorScheme(primary = Color(0xFFBB86FC), background = Color(0xFF121212), surface = Color(0xFF2C2C2C))
     else lightColorScheme(primary = Color(0xFF6200EE), background = Color(0xFFF5F5F5), surface = Color.White)
     MaterialTheme(colorScheme = colorScheme, content = content)
 }
 
 // --- 2. NAVIGATION GRAPH ---
 @Composable
-fun AppNavigation(navController: NavHostController, onThemeToggle: () -> Unit, isDarkMode: Boolean, auth: FirebaseAuth) {
+fun AppNavigation(navController: NavHostController, onThemeToggle: () -> Unit, isDarkMode: Boolean, auth: FirebaseAuth, sessionRating: Int, onRatingChange: (Int) -> Unit) {
     NavHost(navController = navController, startDestination = "splash") {
-        composable("splash") { SplashScreen(navController) }
+        composable("splash") { SplashScreen(navController, auth) }
         composable("welcome") { WelcomeScreen(navController) }
         composable("home") { DashboardScreen(navController) }
-        composable("quiz") { QuizScreen() }
-        composable("menu") { MenuPage(navController, onThemeToggle, isDarkMode) }
+        composable("quiz") { 
+            BackHandler { navController.navigate("home") { popUpTo("home") { inclusive = true } } }
+            QuizScreen() 
+        }
+        composable("menu") { 
+            BackHandler { navController.navigate("home") { popUpTo("home") { inclusive = true } } }
+            MenuPage(navController, onThemeToggle, isDarkMode) 
+        }
         composable("login") { LoginScreen(navController, auth) }
         composable("signup") { SignUpScreen(navController, auth) }
         composable("privacy") { PrivacyPolicyScreen(navController) }
         composable("help") { HelpCenterScreen(navController) }
-        composable("feedback") { FeedbackScreen(navController) }
+        composable("feedback") { FeedbackScreen(navController, auth, sessionRating, onRatingChange) }
         composable("about") { AboutScreen(navController) }
         composable("details/{toolName}") { backStackEntry ->
             val toolName = backStackEntry.arguments?.getString("toolName") ?: "AI Tool"
+            BackHandler { navController.navigate("home") { popUpTo("home") { inclusive = true } } }
             ToolDetailsPage(toolName)
         }
     }
@@ -207,7 +244,7 @@ fun AppNavigation(navController: NavHostController, onThemeToggle: () -> Unit, i
 
 // --- 3. SPLASH SCREEN ---
 @Composable
-fun SplashScreen(navController: NavHostController) {
+fun SplashScreen(navController: NavHostController, auth: FirebaseAuth) {
     var startAnimation by remember { mutableStateOf(false) }
     val alphaAnim by animateFloatAsState(
         targetValue = if (startAnimation) 1f else 0f,
@@ -217,8 +254,15 @@ fun SplashScreen(navController: NavHostController) {
     LaunchedEffect(key1 = true) {
         startAnimation = true
         delay(2500)
-        navController.navigate("welcome") {
-            popUpTo("splash") { inclusive = true }
+        // Login State Persistence: Don't show login if already signed in
+        if (auth.currentUser != null) {
+            navController.navigate("home") {
+                popUpTo("splash") { inclusive = true }
+            }
+        } else {
+            navController.navigate("welcome") {
+                popUpTo("splash") { inclusive = true }
+            }
         }
     }
 
@@ -285,13 +329,13 @@ fun LoginScreen(navController: NavHostController, auth: FirebaseAuth) {
             Spacer(Modifier.height(16.dp))
             OutlinedTextField(value = password, onValueChange = { password = it }, label = { Text("Password") }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp), visualTransformation = PasswordVisualTransformation(), keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password), leadingIcon = { Icon(Icons.Default.Lock, null) } )
             Spacer(Modifier.height(32.dp))
-            Button(onClick = { 
+            Button(onClick = {
                 if (email.isNotEmpty() && password.isNotEmpty()) {
                     auth.signInWithEmailAndPassword(email, password)
                         .addOnCompleteListener { task ->
                             if (task.isSuccessful) {
                                 navController.navigate("home") {
-                                    popUpTo("login") { inclusive = true }
+                                    popUpTo(navController.graph.id) { inclusive = true }
                                 }
                             } else {
                                 Toast.makeText(context, "Login Failed: ${task.exception?.message}", Toast.LENGTH_SHORT).show()
@@ -301,13 +345,13 @@ fun LoginScreen(navController: NavHostController, auth: FirebaseAuth) {
                     Toast.makeText(context, "Please enter email and password", Toast.LENGTH_SHORT).show()
                 }
             }, modifier = Modifier.fillMaxWidth().height(56.dp), shape = RoundedCornerShape(16.dp)) { Text("Login", fontSize = 18.sp, fontWeight = FontWeight.Bold) }
-            
+
             Spacer(Modifier.height(16.dp))
             TextButton(onClick = { navController.navigate("signup") }) {
                 Text("Don't have an account? Sign Up")
             }
         }
-        IconButton(onClick = { navController.popBackStack() }, modifier = Modifier.padding(16.dp)) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back") }
+        // Arrow removed from login screen
     }
 }
 
@@ -333,7 +377,7 @@ fun SignUpScreen(navController: NavHostController, auth: FirebaseAuth) {
             Spacer(Modifier.height(16.dp))
             OutlinedTextField(value = password, onValueChange = { password = it }, label = { Text("Password") }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp), visualTransformation = PasswordVisualTransformation(), keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password), leadingIcon = { Icon(Icons.Default.Lock, null) } )
             Spacer(Modifier.height(32.dp))
-            Button(onClick = { 
+            Button(onClick = {
                 if (email.isNotEmpty() && password.isNotEmpty()) {
                     auth.createUserWithEmailAndPassword(email, password)
                         .addOnCompleteListener { task ->
@@ -351,13 +395,13 @@ fun SignUpScreen(navController: NavHostController, auth: FirebaseAuth) {
                     Toast.makeText(context, "Please fill all fields", Toast.LENGTH_SHORT).show()
                 }
             }, modifier = Modifier.fillMaxWidth().height(56.dp), shape = RoundedCornerShape(16.dp)) { Text("Sign Up", fontSize = 18.sp, fontWeight = FontWeight.Bold) }
-            
+
             Spacer(Modifier.height(16.dp))
             TextButton(onClick = { navController.navigate("login") }) {
                 Text("Already have an account? Login")
             }
         }
-        IconButton(onClick = { navController.popBackStack() }, modifier = Modifier.padding(16.dp)) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back") }
+        // Arrow removed from signup screen
     }
 }
 
@@ -383,13 +427,13 @@ fun PrivacyPolicyScreen(navController: NavHostController) {
                 Spacer(Modifier.height(16.dp))
                 Text("At ExpoAI, we take your privacy seriously. This Privacy Policy explains how we collect, use, and protect your information.", fontWeight = FontWeight.Medium)
                 Spacer(Modifier.height(24.dp))
-                
+
                 PrivacySection("1. Information Collection", "We collect minimal information required to provide our services, such as your email address if you choose to create an account.")
                 PrivacySection("2. How We Use Data", "Your data is used to personalize your experience, track your quiz progress, and improve our AI tool directory.")
                 PrivacySection("3. Third-Party Services", "ExpoAI provides information about third-party AI tools. Please note that these tools have their own privacy policies.")
                 PrivacySection("4. Data Security", "We implement standard security measures to protect your data from unauthorized access or disclosure.")
                 PrivacySection("5. Contact Us", "If you have any questions about this policy, please contact us at support@expoai.com.")
-                
+
                 Spacer(Modifier.height(32.dp))
                 Text("© 2024 ExpoAI Team. All rights reserved.", modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.Center, fontSize = 12.sp, color = Color.Gray)
             }
@@ -443,9 +487,26 @@ fun HelpItem(question: String, answer: String) {
 
 // --- FEEDBACK SCREEN ---
 @Composable
-fun FeedbackScreen(navController: NavHostController) {
+fun FeedbackScreen(navController: NavHostController, auth: FirebaseAuth, sessionRating: Int, onRatingChange: (Int) -> Unit) {
     var feedbackText by remember { mutableStateOf("") }
-    var rating by remember { mutableIntStateOf(0) }
+    val context = LocalContext.current
+    val database = FirebaseDatabase.getInstance().getReference("feedbacks")
+    val feedbacks = remember { mutableStateListOf<UserFeedback>() }
+
+    // Fetch previous feedbacks
+    LaunchedEffect(Unit) {
+        database.addValueEventListener(object : ValueEventListener {
+            override fun onDataChange(snapshot: DataSnapshot) {
+                feedbacks.clear()
+                for (child in snapshot.children) {
+                    child.getValue(UserFeedback::class.java)?.let { feedbacks.add(it) }
+                }
+            }
+            override fun onCancelled(error: DatabaseError) {
+                Toast.makeText(context, "Error: ${error.message}", Toast.LENGTH_SHORT).show()
+            }
+        })
+    }
 
     Scaffold(
         topBar = {
@@ -456,35 +517,76 @@ fun FeedbackScreen(navController: NavHostController) {
             )
         }
     ) { padding ->
-        Column(modifier = Modifier.fillMaxSize().padding(padding).padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-            Text("We'd love to hear from you!", fontSize = 20.sp, fontWeight = FontWeight.Bold)
-            Spacer(Modifier.height(16.dp))
-            Text("Rate your experience:", color = Color.Gray)
-            Row(Modifier.padding(vertical = 16.dp)) {
-                repeat(5) { index ->
-                    IconButton(onClick = { rating = index + 1 }) {
-                        Icon(
-                            imageVector = if (index < rating) Icons.Default.Star else Icons.Default.StarBorder,
-                            contentDescription = null,
-                            tint = if (index < rating) Color(0xFFFFD700) else Color.Gray,
-                            modifier = Modifier.size(32.dp)
-                        )
+        LazyColumn(modifier = Modifier.fillMaxSize().padding(padding).padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+            item {
+                Text("We'd love to hear from you!", fontSize = 20.sp, fontWeight = FontWeight.Bold)
+                Spacer(Modifier.height(16.dp))
+                Text("Rate your experience:", color = Color.Gray)
+                Row(Modifier.padding(vertical = 16.dp)) {
+                    repeat(5) { index ->
+                        IconButton(onClick = { onRatingChange(index + 1) }) {
+                            Icon(
+                                imageVector = if (index < sessionRating) Icons.Default.Star else Icons.Default.StarBorder,
+                                contentDescription = null,
+                                tint = if (index < sessionRating) Color(0xFFFFD700) else Color.Gray,
+                                modifier = Modifier.size(32.dp)
+                            )
+                        }
+                    }
+                }
+                OutlinedTextField(
+                    value = feedbackText,
+                    onValueChange = { feedbackText = it },
+                    label = { Text("Tell us what you think...") },
+                    modifier = Modifier.fillMaxWidth().height(150.dp),
+                    shape = RoundedCornerShape(12.dp)
+                )
+                Spacer(Modifier.height(24.dp))
+                Button(
+                    onClick = {
+                        if (feedbackText.isNotEmpty() && sessionRating > 0) {
+                            val userFeedback = UserFeedback(
+                                email = auth.currentUser?.email ?: "Anonymous",
+                                feedback = feedbackText,
+                                rating = sessionRating,
+                                timestamp = System.currentTimeMillis()
+                            )
+                            database.push().setValue(userFeedback)
+                            Toast.makeText(context, "Feedback sent!", Toast.LENGTH_SHORT).show()
+                            feedbackText = ""
+                        } else {
+                            Toast.makeText(context, "Please fill all fields", Toast.LENGTH_SHORT).show()
+                        }
+                    },
+                    modifier = Modifier.fillMaxWidth().height(56.dp),
+                    shape = RoundedCornerShape(12.dp)
+                ) { Text("Submit Feedback", fontWeight = FontWeight.Bold) }
+                
+                Spacer(Modifier.height(32.dp))
+                Text("Recent Feedbacks", fontSize = 18.sp, fontWeight = FontWeight.Bold, modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.Start)
+                Spacer(Modifier.height(16.dp))
+            }
+            
+            items(feedbacks.reversed()) { fb ->
+                Card(
+                    modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = CardDefaults.cardColors(containerColor = if (isSystemInDarkTheme()) Color(0xFF1E1E1E) else Color(0xFFF5F5F5)),
+                    border = BorderStroke(0.5.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.3f))
+                ) {
+                    Column(Modifier.padding(16.dp)) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(fb.email, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary, fontSize = 14.sp)
+                            Spacer(Modifier.weight(1f))
+                            repeat(fb.rating) {
+                                Icon(Icons.Default.Star, null, tint = Color(0xFFFFD700), modifier = Modifier.size(14.dp))
+                            }
+                        }
+                        Spacer(Modifier.height(8.dp))
+                        Text(fb.feedback, fontSize = 14.sp, color = if (isSystemInDarkTheme()) Color.White else Color.Black)
                     }
                 }
             }
-            OutlinedTextField(
-                value = feedbackText,
-                onValueChange = { feedbackText = it },
-                label = { Text("Tell us what you think...") },
-                modifier = Modifier.fillMaxWidth().height(150.dp),
-                shape = RoundedCornerShape(12.dp)
-            )
-            Spacer(Modifier.height(24.dp))
-            Button(
-                onClick = { /* Submit logic */ navController.popBackStack() },
-                modifier = Modifier.fillMaxWidth().height(56.dp),
-                shape = RoundedCornerShape(12.dp)
-            ) { Text("Submit Feedback", fontWeight = FontWeight.Bold) }
         }
     }
 }
@@ -620,7 +722,7 @@ fun QuizScreen() {
                                     else -> Color.White.copy(alpha = 0.05f)
                                 }
                                 Button(
-                                    onClick = { if (selectedOption == -1) { 
+                                    onClick = { if (selectedOption == -1) {
                                         selectedOption = i
                                         if (i == q.correctIndex) { score += 10; pointsAdded = true }
                                         scope.launch { delay(1200); pointsAdded = false; if(currentIndex < 9) { currentIndex++; selectedOption = -1 } else showResult = true }
@@ -628,7 +730,7 @@ fun QuizScreen() {
                                     modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp).height(60.dp),
                                     colors = ButtonDefaults.buttonColors(containerColor = color, contentColor = Color.White),
                                     shape = RoundedCornerShape(16.dp)
-                                ) { 
+                                ) {
                                     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                                         Text("${'A' + i}. ", fontWeight = FontWeight.Bold)
                                         Text(opt, fontWeight = FontWeight.Medium)
@@ -669,7 +771,16 @@ fun DashboardScreen(navController: NavHostController) {
     var searchQuery by remember { mutableStateOf("") }
     var selectedCategory by remember { mutableStateOf<String?>(null) }
     val filteredTools = allAITools.filter { it.name.contains(searchQuery, ignoreCase = true) }
-    val categories = listOf("Recent Used", "Most Viewed", "Top Rated", "Newest")
+    
+    val quickCategories = listOf("Recent Used", "Most Viewed", "Top Rated", "Newest")
+    
+    val specialCategories = listOf(
+        "Text and Conversation AI" to listOf("Text", "Search"),
+        "Image Generation and Design AI" to listOf("Image", "Design"),
+        "Video Generation AI" to listOf("Video"),
+        "Audio & Voice AI" to listOf("Audio"),
+        "Specialized Productivity and Development AI" to listOf("Productivity", "Code")
+    )
 
     LazyColumn(modifier = Modifier.fillMaxSize().padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         item {
@@ -678,14 +789,15 @@ fun DashboardScreen(navController: NavHostController) {
                     IconButton(onClick = { selectedCategory = null }){ Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back") }
                 }
                 OutlinedTextField(
-                    value = searchQuery, onValueChange = { searchQuery = it; if (it.isNotEmpty()) selectedCategory = null }, 
-                    modifier = Modifier.fillMaxWidth(), 
-                    placeholder = { Text("Search 24+ AI tools...") }, 
-                    leadingIcon = { Icon(Icons.Default.Search, null) }, 
+                    value = searchQuery, onValueChange = { searchQuery = it; if (it.isNotEmpty()) selectedCategory = null },
+                    modifier = Modifier.fillMaxWidth(),
+                    placeholder = { Text("Search 24+ AI tools...") },
+                    leadingIcon = { Icon(Icons.Default.Search, null) },
                     shape = RoundedCornerShape(12.dp)
                 )
             }
         }
+        
         if (selectedCategory != null) {
             item { Text(selectedCategory!!, fontSize = 22.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(vertical = 8.dp)) }
             items(allAITools.shuffled().chunked(3)) { row ->
@@ -702,32 +814,159 @@ fun DashboardScreen(navController: NavHostController) {
                 }
             }
         } else {
-            items(categories) { cat -> CategoryRowSection(cat, navController) { selectedCategory = cat } }
+            // Quick Categories
+            items(quickCategories) { cat -> 
+                CategoryRowSection(cat, allAITools.shuffled().take(8), navController) { selectedCategory = cat } 
+            }
+            
+            item { Spacer(Modifier.height(24.dp)) }
+            item { Text("Explore by Specialized Category", fontSize = 22.sp, fontWeight = FontWeight.ExtraBold, modifier = Modifier.padding(vertical = 12.dp)) }
+            
+            // Special Categories
+            items(specialCategories) { (title, cats) ->
+                val tools = allAITools.filter { it.category in cats }
+                CategoryRowSection(title, tools, navController) { selectedCategory = title }
+            }
         }
     }
 }
 
 @Composable
-fun CategoryRowSection(title: String, navController: NavHostController, onSeeMore: () -> Unit) {
+fun CategoryRowSection(title: String, tools: List<AITool>, navController: NavHostController, onSeeMore: () -> Unit) {
     Column(modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
-        Text(title, fontSize = 18.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(bottom = 12.dp))
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+            Text(title, fontSize = 18.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(bottom = 12.dp).weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis)
+            TextButton(onClick = onSeeMore) { Text("See more", color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold) }
+        }
         LazyRow(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp), contentPadding = PaddingValues(end = 16.dp)) {
-            val tools = allAITools.shuffled().take(8)
-            items(tools) { tool -> AICard(tool, Modifier.width(140.dp)) { navController.navigate("details/${tool.name}") } }
+            items(tools) { tool -> AICard(tool, Modifier.width(145.dp)) { navController.navigate("details/${tool.name}") } }
         }
-        Box(modifier = Modifier.fillMaxWidth()) {
-            TextButton(onClick = onSeeMore, modifier = Modifier.align(Alignment.CenterEnd)) { Text("See more.", color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold) }
-        }
+        Spacer(Modifier.height(12.dp))
         HorizontalDivider(thickness = 0.5.dp, color = Color.LightGray)
     }
 }
 
 @Composable
 fun AICard(tool: AITool, modifier: Modifier, onClick: () -> Unit) {
-    Card(modifier = modifier.aspectRatio(0.85f).clickable { onClick() }, shape = RoundedCornerShape(16.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface), elevation = CardDefaults.cardElevation(4.dp)) {
-        Box(modifier = Modifier.fillMaxSize().padding(12.dp)) {
-            Row(modifier = Modifier.align(Alignment.TopEnd), verticalAlignment = Alignment.CenterVertically) { Icon(Icons.Default.Star, null, tint = Color(0xFFFFD700), modifier = Modifier.size(14.dp)); Text(tool.rating, fontSize = 11.sp, fontWeight = FontWeight.Bold) }
-            Column(modifier = Modifier.align(Alignment.Center), horizontalAlignment = Alignment.CenterHorizontally) { Text(tool.name, fontWeight = FontWeight.Bold, fontSize = 14.sp, textAlign = TextAlign.Center); Text(tool.category, fontSize = 11.sp, color = Color.Gray) }
+    val isDark = isSystemInDarkTheme()
+    val categoryIcon = when (tool.category) {
+        "Text" -> Icons.Default.Description
+        "Image" -> Icons.Default.Image
+        "Video" -> Icons.Default.Videocam
+        "Search" -> Icons.Default.Search
+        "Audio" -> Icons.Default.Mic
+        "Code" -> Icons.Default.Code
+        "Productivity" -> Icons.Default.AutoAwesome
+        "Design" -> Icons.Default.Brush
+        else -> Icons.Default.SmartToy
+    }
+
+    Card(
+        modifier = modifier
+            .padding(4.dp)
+            .aspectRatio(0.85f)
+            .clickable { onClick() },
+        shape = RoundedCornerShape(24.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = if (isDark) Color(0xFF151515) else Color(0xFFF5F5F7),
+        ),
+        border = if (isDark) BorderStroke(0.5.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.3f)) else BorderStroke(0.5.dp, Color.Black.copy(alpha = 0.05f)),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+    ) {
+        Box(modifier = Modifier.fillMaxSize()) {
+            // Background subtle gradient
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(
+                        Brush.verticalGradient(
+                            listOf(
+                                MaterialTheme.colorScheme.primary.copy(alpha = 0.03f),
+                                Color.Transparent
+                            )
+                        )
+                    )
+            )
+
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(12.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center
+            ) {
+                // Logo or Icon
+                Surface(
+                    shape = CircleShape,
+                    color = MaterialTheme.colorScheme.primary.copy(alpha = 0.08f),
+                    modifier = Modifier.size(60.dp)
+                ) {
+                    SubcomposeAsyncImage(
+                        model = tool.logoUrl,
+                        contentDescription = null,
+                        modifier = Modifier.padding(12.dp).clip(CircleShape),
+                        contentScale = ContentScale.Fit,
+                        error = {
+                            Icon(
+                                imageVector = categoryIcon,
+                                contentDescription = null,
+                                modifier = Modifier.size(32.dp),
+                                tint = MaterialTheme.colorScheme.primary
+                            )
+                        }
+                    )
+                }
+
+                Spacer(Modifier.height(4.dp))
+
+                Text(
+                    text = tool.name,
+                    fontWeight = FontWeight.ExtraBold,
+                    fontSize = 14.sp,
+                    textAlign = TextAlign.Center,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    color = if (isDark) Color.White else Color.Black
+                )
+
+                Text(
+                    text = tool.description,
+                    fontSize = 10.sp,
+                    fontWeight = FontWeight.Normal,
+                    textAlign = TextAlign.Center,
+                    maxLines = 2,
+                    lineHeight = 12.sp,
+                    overflow = TextOverflow.Ellipsis,
+                    color = if (isDark) Color.LightGray else Color.Gray
+                )
+                
+                Spacer(Modifier.weight(1f))
+
+                // Rating Badge
+                Surface(
+                    shape = RoundedCornerShape(12.dp),
+                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            Icons.Default.Star,
+                            null,
+                            tint = Color(0xFFFFB300),
+                            modifier = Modifier.size(10.dp)
+                        )
+                        Spacer(Modifier.width(4.dp))
+                        Text(
+                            tool.rating,
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+            }
         }
     }
 }
@@ -746,7 +985,15 @@ fun ToolDetailsPage(toolName: String) {
                 Box(modifier = Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(MaterialTheme.colorScheme.primary, MaterialTheme.colorScheme.primaryContainer))))
                 Column(modifier = Modifier.align(Alignment.Center), horizontalAlignment = Alignment.CenterHorizontally) {
                     Surface(modifier = Modifier.size(100.dp), shape = CircleShape, color = Color.White.copy(alpha = 0.2f)) {
-                        Icon(Icons.Default.AutoAwesome, null, modifier = Modifier.padding(20.dp).fillMaxSize(), tint = Color.White)
+                        SubcomposeAsyncImage(
+                            model = tool?.logoUrl,
+                            contentDescription = null,
+                            modifier = Modifier.padding(20.dp).fillMaxSize(),
+                            contentScale = ContentScale.Fit,
+                            error = {
+                                Icon(Icons.Default.AutoAwesome, null, tint = Color.White)
+                            }
+                        )
                     }
                     Spacer(Modifier.height(16.dp))
                     Text(toolName, fontSize = 36.sp, fontWeight = FontWeight.ExtraBold, color = Color.White)
@@ -756,7 +1003,7 @@ fun ToolDetailsPage(toolName: String) {
                 }
             }
         }
-        
+
         item {
             Column(modifier = Modifier.padding(24.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
@@ -777,16 +1024,16 @@ fun ToolDetailsPage(toolName: String) {
                 }
                 Spacer(Modifier.height(8.dp))
                 Text(
-                    "Discover the power of $toolName. This advanced AI solution leverages cutting-edge technology to provide comprehensive assistance and creative results for professionals and enthusiasts alike.",
+                    tool?.description ?: "Discover the power of $toolName. This advanced AI solution leverages cutting-edge technology to provide comprehensive assistance.",
                     fontSize = 16.sp, color = Color.Gray, lineHeight = 24.sp
                 )
-                
+
                 Spacer(Modifier.height(32.dp))
                 Text("Key Features", fontSize = 22.sp, fontWeight = FontWeight.Bold)
                 Spacer(Modifier.height(16.dp))
             }
         }
-        
+
         items(features) { f ->
             Card(Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 6.dp), shape = RoundedCornerShape(16.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))) {
                 Row(Modifier.padding(20.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -796,7 +1043,7 @@ fun ToolDetailsPage(toolName: String) {
                 }
             }
         }
-        
+
         item {
             Button(
                 onClick = { tool?.let { uriHandler.openUri(it.url) } ?: uriHandler.openUri("https://google.com") },

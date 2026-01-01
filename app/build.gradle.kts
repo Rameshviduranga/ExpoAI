@@ -53,7 +53,11 @@ dependencies {
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.8.7")
     implementation("androidx.navigation:navigation-compose:2.8.5")
     implementation(libs.firebase.auth)
+    implementation(libs.firebase.database)
     
+    // Coil for Image Loading
+    implementation("io.coil-kt:coil-compose:2.7.0")
+
     // WorkManager for background notifications
     implementation("androidx.work:work-runtime-ktx:2.9.0")
 
